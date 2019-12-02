@@ -138,3 +138,13 @@ func main() {
 	fmt.Printf("Part 2: %v", addlFuelSum)
 	fmt.Println()
 }
+
+/* NOTES (not in the README b/c spoilers)
+
+Things I learned
+- When dividing by an integer, you always get an integer! Which saves me from using Math.floor()
+- fmt.Println() is good for clearer formatting. Though there’s probably a better way…
+
+Questions
+- I wonder if initializing an array with values sets the memory length?
+*/

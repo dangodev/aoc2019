@@ -47,30 +47,35 @@ func main() {
 	fmt.Println()
 
 	// part 2
-	noun := 0
-	verb := 1
 	magicNumber := 19690720
 
 Loop:
-	for n := 0; n <= 99; n++ {
-		for v := 0; v <= 99; v++ {
+	for noun := 0; noun <= 99; noun++ {
+		for verb := 0; verb <= 99; verb++ {
 			trial := make([]int, len(intcode))
 			for i, v := range intcode {
 				trial[i] = v
 			}
-			trial[1] = n
-			trial[2] = v
+			trial[1] = noun
+			trial[2] = verb
 
 			result := run(trial)
 
 			if result == magicNumber {
-				noun = n
-				verb = v
+				fmt.Printf("Part 2: %v", 100*noun+verb)
+				fmt.Println()
 				break Loop
 			}
 		}
 	}
-
-	fmt.Printf("Part 2: %v", 100*noun+verb)
-	fmt.Println()
 }
+
+/* NOTES (not in the README b/c spoilers)
+
+Things I learned
+- Got bitten by array pointer assignment—same as JavaScript. Figured out the for-loop array copy the hard way.
+- Learned about labels (Loop:)! That’s so much nicer than having to do something hacky to break out of nested loops.
+
+Questions
+- Is there a more efficient way to reset the intcode on every trial?
+*/
