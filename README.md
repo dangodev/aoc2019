@@ -7,3 +7,10 @@ To run a particular day:
 ```bash
 go run day01.go
 ```
+
+### Score
+
+| Day | Score |
+| --: | :---- |
+| `2` | ⭐⭐  |
+| `1` | ⭐⭐  |
