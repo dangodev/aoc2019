@@ -97,6 +97,7 @@ func main() {
 
 Things I learned
 - Go’s performance is a Godsend in meaty algos like this
+- Off-by-one errors are a bitch
 
 Questions
 - How can I solve this more betterer?
