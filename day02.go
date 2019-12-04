@@ -43,7 +43,7 @@ func main() {
 	run1[1] = 12
 	run1[2] = 2
 
-	fmt.Printf("Part 1: %v", run(run1))
+	fmt.Printf("Day 02, Part 1: %v", run(run1))
 	fmt.Println()
 
 	// part 2
@@ -62,7 +62,7 @@ Loop:
 			result := run(trial)
 
 			if result == magicNumber {
-				fmt.Printf("Part 2: %v", 100*noun+verb)
+				fmt.Printf("Day 02, Part 2: %v", 100*noun+verb)
 				fmt.Println()
 				break Loop
 			}
