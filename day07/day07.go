@@ -18,7 +18,6 @@ func run(intcode Intcode, inputs []int) []int {
 		trial[i] = intcode[i]
 	}
 
-Loop:
 	for pos < len(trial) {
 		mode1 := 0
 		mode2 := 0
@@ -58,6 +57,9 @@ Loop:
 			pos += 3 + 1
 			break
 		case 3: // input (1)
+			if instruction >= len(inputs) {
+				return output
+			}
 			trial[trial[pos+1]] = inputs[instruction]
 			instruction++
 			pos += 1 + 1 // move forward 1 parameter + 1 oppcode position, etc.
@@ -97,7 +99,7 @@ Loop:
 			pos += 3 + 1
 			break
 		case 99: // exit
-			break Loop
+			return output
 		default:
 			panic("help I’m dying")
 		}
@@ -106,23 +108,29 @@ Loop:
 	return output
 }
 
-func thrusters(phases [5]int, intcode Intcode) [5]int {
-	lastValue := 0
-	var trials [5]int
-	for i, v := range phases {
-		trials[i] = run(intcode, []int{v, lastValue})[0]
+func thrusters(phases [5]int, intcode Intcode, feedbackLoop bool) []int {
+	i := 0
+	output := []int{0, phases[0]}
+	for {
+		input := []int{phases[i%5]}
+		input = append(input, output...)
+		output = run(intcode, input)
+		if (feedbackLoop == false && i == 4) || (feedbackLoop == true && output[0] == 99){
+			break
+		}
+		i++
 	}
-	return trials
+	return output
 }
 
-func iterations() [][5]int {
+func iterations(start int) [][5]int {
 	var iterations [][5]int
 
-	for a := 0; a <= 4; a++ {
-		for b := 0; b <= 4; b++ {
-			for c := 0; c <= 4; c++ {
-				for d := 0; d <= 4; d++ {
-					for e := 0; e <= 4; e++ {
+	for a := start; a <= start+4; a++ {
+		for b := start; b <= start+4; b++ {
+			for c := start; c <= start+4; c++ {
+				for d := start; d <= start+4; d++ {
+					for e := start; e <= start+4; e++ {
 						if a != b && a != c && a != d && a != e && b != c && b != d && b != e && c != d && c != e && d != e {
 							iterations = append(iterations, [5]int{a, b, c, d, e})
 						}
@@ -140,20 +148,27 @@ func main() {
 
 	// part 1
 	max := 0
-	combinations := iterations()
-	for _, phase := range combinations {
-		output := thrusters(phase, intcode)
-		signalStr := ""
-		for _, i := range output {
-			signalStr += strconv.Itoa(i)
-		}
-		signal, _ := strconv.Atoi(signalStr)
-		if signal > max {
-			fmt.Println(phase)
-			max = signal
+	phaseSettings := iterations(0)
+	for _, phase := range phaseSettings {
+		output := thrusters(phase, intcode, false)
+		if output[0] > max {
+			max = output[0]
 		}
 	}
 
 	fmt.Printf("Day 07, Part 1: %v", max)
+	fmt.Println()
+
+	// part 2
+	nextMax := 0
+	nextPhaseSettings := iterations(5)
+	for _, phase := range nextPhaseSettings {
+		output := thrusters(phase, intcode, true)
+		if output[1] > nextMax {
+			nextMax = output[1]
+		}
+	}
+
+	fmt.Printf("Day 07, Part 2: %v", nextMax)
 	fmt.Println()
 }

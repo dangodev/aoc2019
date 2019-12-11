@@ -51,7 +51,6 @@ func main() {
 	fmt.Println()
 
 	// part 2
-
 	nodeCount := 0
 	youOrbits := orbits["YOU"]
 	sanOrbits := orbits["SAN"]
@@ -64,7 +63,6 @@ Loop:
 			}
 		}
 	}
-
 	fmt.Printf("Day 06, Part 2: %v", nodeCount)
 	fmt.Println()
 }
