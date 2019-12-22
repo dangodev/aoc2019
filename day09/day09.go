@@ -1,8 +1,12 @@
 package main
 
-import "strconv"
-
-type Intcode []int
+import (
+	"bufio"
+	"fmt"
+	"os"
+	"strconv"
+	"strings"
+)
 
 func getModes(input int) (oppcode int, modes []int) {
 	if input > 99 {
@@ -19,7 +23,7 @@ func getModes(input int) (oppcode int, modes []int) {
 	return input, []int{}
 }
 
-func run(intcode Intcode, inputs []int) []int {
+func run(intcode []int, inputs []int) []int {
 	immediate := 1
 	relative := 2
 
@@ -29,7 +33,20 @@ func run(intcode Intcode, inputs []int) []int {
 	pos := 0
 	relativeBase := 0
 
-	trial := make(Intcode, len(intcode))
+	paramCount := map[int]int{
+		1:  3, // multiply
+		2:  3, // add
+		3:  1, // input
+		4:  1, // output
+		5:  2, // jump-if-true
+		6:  2, // jump-if-false
+		7:  3, // less-than
+		8:  3, // equals
+		9:  1, // relative base
+		99: 0, // exit
+	}
+
+	trial := make([]int, len(intcode))
 	for i := 0; i < len(intcode); i++ {
 		trial[i] = intcode[i]
 	}
@@ -37,97 +54,83 @@ func run(intcode Intcode, inputs []int) []int {
 	for pos < len(trial) {
 		input := trial[pos]
 		oppcode, modes := getModes(input)
-
-		var p1 int
-		var p2 int
-		switch modes[0] {
-		case immediate:
-			p1 = trial[pos+1]
-			break
-		case relative:
-			p1 = trial[pos+relativeBase]
-			break
-		default:
-			p1 = trial[trial[pos+1]]
-			break
-		}
-		switch modes[1] {
-		case immediate:
-			p2 = trial[pos+2]
-			break
-		case relative:
-			p2 = trial[pos+relativeBase]
-			break
-		default:
-			p2 = trial[trial[pos+2]]
-			break
+		params := make([]int, paramCount[oppcode])
+		for param := 0; param < paramCount[oppcode]; param++ {
+			nextParam := param + 1
+			if param < len(modes) {
+				switch modes[param] {
+				case immediate:
+					params[param] = trial[pos+nextParam]
+					break
+				case relative:
+					params[param] = trial[nextParam+relativeBase]
+					break
+				}
+			}
+			params[param] = trial[trial[pos+nextParam]]
 		}
 
 		switch oppcode {
-		case 1: // add (3)
-			trial[trial[pos+3]] = p1 + p2
-			pos += 3 + 1 // move forward 3 parameters + 1 oppcode position
-			break
-		case 2: // multiply (3)
-			trial[trial[pos+3]] = p1 * p2
-			pos += 3 + 1
-			break
-		case 3: // input (1)
-			if instruction >= len(inputs) {
-				return output
-			}
-			trial[trial[pos+1]] = inputs[instruction]
+		case 1: // add
+			trial[trial[params[2]]] = params[0] + params[1]
+		case 2: // multiply
+			trial[trial[params[2]]] = params[0] * params[1]
+		case 3: // input
+			trial[trial[params[1]]] = inputs[instruction]
 			instruction++
-			pos += 1 + 1 // move forward 1 parameter + 1 oppcode position, etc.
-			break
-		case 4: // output (1)
-			output = append(output, p1)
-			pos += 1 + 1
-			break
-		case 5: // jump-if-true (2)
-			if p1 != 0 {
-				pos = p2
-			} else {
-				pos += 2 + 1
+		case 4: // output
+			output = append(output, params[0])
+		case 5: // jump-if-true
+			if params[0] != 0 {
+				pos = params[1]
+				break
 			}
-			break
-		case 6: // jump-if-false (2)
-			if p1 == 0 {
-				pos = p2
-			} else {
-				pos += 2 + 1
+		case 6: // jump-if-false
+			if params[0] == 0 {
+				pos = params[1]
+				break
 			}
-			break
-		case 7: // less-than (3)
-			if p1 < p2 {
-				trial[trial[pos+3]] = 1
+		case 7: // less-than
+			if params[0] < params[1] {
+				trial[trial[params[2]]] = 1
 			} else {
-				trial[trial[pos+3]] = 0
+				trial[trial[params[2]]] = 0
 			}
-			pos += 3 + 1
-			break
-		case 8: // equals (3)
-			if p1 == p2 {
-				trial[trial[pos+3]] = 1
+		case 8: // equals
+			if params[0] == params[1] {
+				trial[trial[params[2]]] = 1
 			} else {
-				trial[trial[pos+3]] = 0
+				trial[trial[params[2]]] = 0
 			}
-			pos += 3 + 1
-			break
 		case 9: // adjust relative base
-			relativeBase += p1
-			pos += 1 + 1
-			break
+			relativeBase += params[0]
 		case 99: // exit
 			return output
-		default:
-			panic("help I’m dying")
 		}
+		pos += 1 + paramCount[oppcode]
 	}
 
 	return output
 }
 
 func main() {
+	f, err := os.Open("input.txt")
+	if err != nil {
+		panic(err)
+	}
+	defer f.Close()
 
+	scanner := bufio.NewScanner(f)
+	var codes []string
+	for scanner.Scan() {
+		codes = strings.Split(scanner.Text(), ",")
+	}
+	program := make([]int, len(codes))
+	for i, v := range codes {
+		program[i], _ = strconv.Atoi(v)
+	}
+
+	// part 1
+	boost := run(program, []int{1})
+	fmt.Printf("Day 09, Part 1: %v", boost)
 }
