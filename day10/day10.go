@@ -91,7 +91,7 @@ func blastingOrder(allAsteroids map[float64][]asteroid) []asteroid {
 }
 
 func readFile(filename string) []string {
-	f, err := os.Open("input.txt")
+	f, err := os.Open(filename)
 	if err != nil {
 		panic(err)
 	}
