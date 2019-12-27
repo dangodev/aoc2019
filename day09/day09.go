@@ -3,134 +3,176 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"math"
 	"os"
 	"strconv"
 	"strings"
 )
 
-func getModes(input int) (oppcode int, modes []int) {
-	if input > 99 {
-		s := strconv.Itoa(input)
-		input, _ = strconv.Atoi(s[len(s)-2:])
-		params := s[0 : len(s)-2]
-		var paramModes []int
-		for i := len(params) - 1; i >= 0; i-- {
-			mode, _ := strconv.Atoi(params[i:i])
-			paramModes = append(paramModes, mode)
-		}
-		return input, paramModes
+type Intcode []int
+
+const POSITION = 0
+const IMMEDIATE = 1
+const RELATIVE = 2
+
+const MULTIPLY = 1
+const ADD = 2
+const INPUT = 3
+const OUTPUT = 4
+const IF_TRUE = 5
+const IF_FALSE = 6
+const LT = 7
+const EQ = 8
+const ADJUST_RB = 9
+const EXIT = 99
+
+func command(instruction int) (int, []int) {
+	paramCount := map[int]int{
+		MULTIPLY:  3,
+		ADD:       3,
+		INPUT:     1,
+		OUTPUT:    1,
+		IF_TRUE:   2,
+		IF_FALSE:  2,
+		LT:        3,
+		EQ:        3,
+		ADJUST_RB: 1,
+		EXIT:      0,
 	}
-	return input, []int{}
+
+	// if <= 99, return number
+	str := strconv.Itoa(instruction)
+	modes := make([]int, paramCount[instruction])
+	if len(str) < 3 {
+		return instruction, modes
+	}
+
+	// otherwise, parse modes
+	method, _ := strconv.Atoi(str[len(str)-2:])
+	modes = make([]int, paramCount[method])
+	params := []int{}
+	for i := len(str) - 3; i >= 0; i-- {
+		mode, _ := strconv.Atoi(string(str[i]))
+		params = append(params, mode)
+	}
+	for i, v := range params {
+		modes[i] = v
+	}
+	return method, modes
 }
 
-func run(intcode []int, inputs []int) []int {
-	immediate := 1
-	relative := 2
+func multiply(x int, y int) int {
+	return x * y
+}
 
-	output := []int{}
+func add(x int, y int) int {
+	return x + y
+}
 
-	instruction := 0
-	pos := 0
-	relativeBase := 0
+func ifTrue(x int) bool {
+	return x != 0
+}
 
-	paramCount := map[int]int{
-		1:  3, // multiply
-		2:  3, // add
-		3:  1, // input
-		4:  1, // output
-		5:  2, // jump-if-true
-		6:  2, // jump-if-false
-		7:  3, // less-than
-		8:  3, // equals
-		9:  1, // relative base
-		99: 0, // exit
-	}
+func ifFalse(x int) bool {
+	return x == 0
+}
 
-	trial := make([]int, len(intcode))
-	for i := 0; i < len(intcode); i++ {
-		trial[i] = intcode[i]
-	}
+func lessThan(x int, y int) bool {
+	return x < y
+}
 
-	for pos < len(trial) {
-		input := trial[pos]
-		oppcode, modes := getModes(input)
-		params := make([]int, paramCount[oppcode])
-		for param := 0; param < paramCount[oppcode]; param++ {
-			nextParam := param + 1
-			if param < len(modes) {
-				switch modes[param] {
-				case immediate:
-					params[param] = trial[pos+nextParam]
-					break
-				case relative:
-					params[param] = trial[nextParam+relativeBase]
-					break
-				}
-			}
-			params[param] = trial[trial[pos+nextParam]]
+func eq(x int, y int) bool {
+	return x == y
+}
+
+func loop(x int, length int) int {
+	return int(math.Mod(float64(x), float64(length)))
+}
+
+func run(intcode Intcode, pos int, input []int, inputCount int, output []int, rb int) []int {
+	method, modes := command(intcode[pos])
+	params := make([]int, len(modes))
+	firstParam := pos + 1
+	for i, mode := range modes {
+		next := firstParam + i
+		switch mode {
+		case IMMEDIATE:
+			params[i] = intcode[next]
+		case RELATIVE:
+			params[i] = intcode[loop(rb+next, len(intcode))]
+		case POSITION:
+		default:
+			params[i] = intcode[loop(intcode[next], len(intcode))]
 		}
-
-		switch oppcode {
-		case 1: // add
-			trial[trial[params[2]]] = params[0] + params[1]
-		case 2: // multiply
-			trial[trial[params[2]]] = params[0] * params[1]
-		case 3: // input
-			trial[trial[params[1]]] = inputs[instruction]
-			instruction++
-		case 4: // output
-			output = append(output, params[0])
-		case 5: // jump-if-true
-			if params[0] != 0 {
-				pos = params[1]
-				break
-			}
-		case 6: // jump-if-false
-			if params[0] == 0 {
-				pos = params[1]
-				break
-			}
-		case 7: // less-than
-			if params[0] < params[1] {
-				trial[trial[params[2]]] = 1
-			} else {
-				trial[trial[params[2]]] = 0
-			}
-		case 8: // equals
-			if params[0] == params[1] {
-				trial[trial[params[2]]] = 1
-			} else {
-				trial[trial[params[2]]] = 0
-			}
-		case 9: // adjust relative base
-			relativeBase += params[0]
-		case 99: // exit
-			return output
-		}
-		pos += 1 + paramCount[oppcode]
 	}
 
+	switch method {
+	case MULTIPLY:
+		intcode[params[2]] = multiply(params[0], params[1])
+	case ADD:
+		intcode[params[2]] = add(params[0], params[1])
+	case INPUT:
+		intcode[params[0]] = input[inputCount]
+		inputCount++
+	case OUTPUT:
+		output = append(output, params[0])
+	case IF_TRUE:
+		if ifTrue(params[0]) {
+			run(intcode, pos+params[1], input, inputCount, output, rb)
+		}
+	case IF_FALSE:
+		if ifFalse(params[0]) {
+			run(intcode, pos+params[1], input, inputCount, output, rb)
+		}
+	case LT:
+		if lessThan(params[0], params[1]) {
+			intcode[params[2]] = 1
+		} else {
+			intcode[params[2]] = 0
+		}
+	case EQ:
+		if eq(params[0], params[1]) {
+			intcode[params[2]] = 1
+		} else {
+			intcode[params[2]] = 0
+		}
+	case ADJUST_RB:
+		rb += params[0]
+	case EXIT:
+		return output
+	}
+
+	next := firstParam + len(modes)
+	if next < len(intcode)-1 {
+		return run(intcode, next, input, inputCount, output, rb)
+	}
 	return output
 }
 
-func main() {
-	f, err := os.Open("input.txt")
-	if err != nil {
-		panic(err)
-	}
+func readIntcode(filename string) Intcode {
+	f, _ := os.Open(filename)
 	defer f.Close()
 
+	intcode := Intcode{}
 	scanner := bufio.NewScanner(f)
-	var codes []string
 	for scanner.Scan() {
-		codes = strings.Split(scanner.Text(), ",")
+		codes := strings.Split(scanner.Text(), ",")
+		for _, v := range codes {
+			c, _ := strconv.Atoi(v)
+			intcode = append(intcode, c)
+		}
 	}
-	program := make([]int, len(codes))
-	for i, v := range codes {
-		program[i], _ = strconv.Atoi(v)
-	}
+	return intcode
+}
 
-	// part 1
-	boost := run(program, []int{1})
+func main() {
+	program := readIntcode("input.txt")
+	pos := 0
+	input := []int{}
+	inputCount := 0
+	output := []int{}
+	rb := 0
+	boost := run(program, pos, input, inputCount, output, rb)
+
 	fmt.Printf("Day 09, Part 1: %v", boost)
 }
